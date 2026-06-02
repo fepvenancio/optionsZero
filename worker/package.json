@@ -8,12 +8,13 @@
     "tail": "wrangler tail"
   },
   "dependencies": {
+    "@nktkas/hyperliquid": "^0.32.2",
     "hono": "^4.7.0",
     "viem": "^2.23.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250520.0",
-    "wrangler": "^4.14.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "wrangler": "^4.14.0"
   }
 }

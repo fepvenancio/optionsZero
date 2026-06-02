@@ -11,6 +11,11 @@ import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { vaultAbi, adapterAbi, vaultWriteAbi, adapterWriteAbi } from "./abi";
 import type { IntentFired, MonitorConfig } from "./monitor";
+import {
+  resizeShortToTarget,
+  getPosition,
+  type HyperliquidConfig,
+} from "./hyperliquid";
 
 /* ///////////////////////////////////////////////////////////////
                           TYPES
@@ -18,6 +23,8 @@ import type { IntentFired, MonitorConfig } from "./monitor";
 
 export interface ExecutorConfig extends MonitorConfig {
   privateKey: Hex;
+  /** If set, enables real Hyperliquid trading before on-chain sync. */
+  hyperliquid?: HyperliquidConfig;
 }
 
 export interface ExecutionResult {
@@ -103,6 +110,34 @@ async function executeResizePerp(
   console.log(
     `[executor] RESIZE_SHORT_PERP: current=${formatEther(currentNotional)} target=${formatEther(targetNotional)}`
   );
+
+  // ── Step 1: Execute REAL trade on Hyperliquid (if configured) ──
+  if (config.hyperliquid) {
+    const targetEth = Number(formatEther(targetNotional));
+    console.log(`[executor] Hyperliquid: resizing real short to ${targetEth} ETH`);
+
+    const hlResult = await resizeShortToTarget(config.hyperliquid, targetEth);
+
+    if (!hlResult.success) {
+      console.error(`[executor] Hyperliquid trade failed: ${hlResult.error}`);
+      // Still continue with on-chain sync — the mock adapter tracks the target,
+      // not the actual fill. This keeps the vault's coverage ratio correct.
+    } else {
+      console.log(
+        `[executor] Hyperliquid: filled ${hlResult.filledSize} ETH @ $${hlResult.avgPrice}`
+      );
+    }
+
+    // Log current HL position for observability
+    const hlPos = await getPosition(config.hyperliquid);
+    if (hlPos) {
+      console.log(
+        `[executor] Hyperliquid position: ${hlPos.sizeEth} ETH @ $${hlPos.entryPx} (PnL: $${hlPos.unrealisedPnl.toFixed(2)})`
+      );
+    }
+  }
+
+  // ── Step 2: Sync MockPerpAdapter on-chain ──
 
   let txHash: Hash;
 

@@ -15,6 +15,10 @@ type Bindings = {
   IMBALANCE_THRESHOLD_BPS: string;
   API_SECRET: string;
   KEEPER_PRIVATE_KEY: string;
+  /** Hyperliquid wallet private key (optional — enables real trading). */
+  HYPERLIQUID_PRIVATE_KEY?: string;
+  /** Set to "true" for Hyperliquid testnet (default: testnet). */
+  HYPERLIQUID_TESTNET?: string;
 };
 
 /* ///////////////////////////////////////////////////////////////
@@ -59,10 +63,23 @@ function buildMonitorConfig(env: Bindings) {
 }
 
 function buildExecutorConfig(env: Bindings) {
-  return {
+  const base = {
     ...buildMonitorConfig(env),
     privateKey: env.KEEPER_PRIVATE_KEY as Hex,
   };
+
+  // Attach Hyperliquid config if the key is provided.
+  if (env.HYPERLIQUID_PRIVATE_KEY) {
+    return {
+      ...base,
+      hyperliquid: {
+        privateKey: env.HYPERLIQUID_PRIVATE_KEY as Hex,
+        isTestnet: env.HYPERLIQUID_TESTNET !== "false", // default to testnet
+      },
+    };
+  }
+
+  return base;
 }
 
 /** Validate Bearer token against the API_SECRET. */
