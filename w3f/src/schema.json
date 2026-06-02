@@ -4,21 +4,9 @@
   "memory": 256,
   "timeout": 30,
   "userArgs": {
-    "vaultAddress": {
-      "type": "string",
-      "description": "Vault contract address on Sepolia"
-    },
-    "adapterAddress": {
-      "type": "string",
-      "description": "IPerpAdapter contract address on Sepolia"
-    },
-    "imbalanceThresholdBps": {
-      "type": "number",
-      "description": "Size imbalance threshold in basis points. 100 = 1% (default)"
-    },
-    "batchWindowBlocks": {
-      "type": "number",
-      "description": "Blocks a redemption batch must be open before settlement fires. 300 ≈ 1 hour (default)"
-    }
+    "vaultAddress": "string",
+    "adapterAddress": "string",
+    "imbalanceThresholdBps": "number",
+    "batchWindowBlocks": "number"
   }
 }
