@@ -113,13 +113,14 @@ forge script script/Deploy.s.sol \
 
 | Contract | Address |
 |---|---|
-| `Vault` | `0x67ecf07E977cd869b1B407312647116101e3DFb4` |
-| `Trancher` | `0x2EDA2564b9e40e0C9E3C0e86fA247C4091e631Fe` |
-| `MockPerpAdapter` | `0x007CeBEfE42E75a9aCc132ad337771A207f9F3f9` |
-| `PToken (ozP)` | `0x30d467432e32675C9bBd77902202c5d387df6B9e` |
-| `NToken (ozN)` | `0xA23e27eeceBdf001170431cdFFfE2E60BAf41440` |
-| `YieldAccumulator` | `0x83dfBff43746fb647afa5450839A797C191948b9` |
-| `IntentEncoder` | `0x3F7603633D15964eB6E759B6B6b58fd1cbFF4D6a` |
+| `Vault` | `0x43A7bbbd3ad6D4F7a7e3D8277D6271f9C9f8cffD` |
+| `Trancher` | `0x3Fa9b5033dD2Edb7e598834587fF7EA989fA55D4` |
+| `MockPerpAdapter` | `0x343F8BF65EEA92b067b04431f4c579CB6276Ad83` |
+| `PToken (ozP)` | `0x897c2ce435f80e144Ee6E02E9E2cC5B4E6d8b204` |
+| `NToken (ozN)` | `0x53dFCDf660e386bb8c01a058a3BC2f4773eDbC87` |
+| `YieldAccumulator` | `0xc01f7DA356215254a0598eD5edD94a228ec60012` |
+| `IntentEncoder` | `0xb65C2d24591D0A12Bc650AE336e9EA2964e2b102` |
+| `MockWstETH` | `0x67B01481B9bAC7d0d4dc08473956FfAb91e08DDc` |
 
 ### Run the Gelato Web3 Function locally
 
