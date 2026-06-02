@@ -1,0 +1,18 @@
+#:schema node_modules/wrangler/config-schema.json
+
+name = "optionszero-vault-monitor"
+main = "src/index.ts"
+compatibility_date = "2025-05-26"
+compatibility_flags = ["nodejs_compat"]
+
+# Cron trigger: every 5 minutes
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Secrets (set via `wrangler secret put`):
+#   SEPOLIA_RPC_URL — Sepolia RPC endpoint
+
+[vars]
+VAULT_ADDRESS = "0x43A7bbbd3ad6D4F7a7e3D8277D6271f9C9f8cffD"
+ADAPTER_ADDRESS = "0x343F8BF65EEA92b067b04431f4c579CB6276Ad83"
+IMBALANCE_THRESHOLD_BPS = "100"
