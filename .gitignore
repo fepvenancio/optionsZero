@@ -68,3 +68,5 @@ node_modules/
 # Coverage reports
 lcov.info
 coverage/
+worker/.wrangler/
+worker/node_modules/
