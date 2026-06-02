@@ -9,11 +9,11 @@ import {ERC20} from "solady/tokens/ERC20.sol";
 ///         tranche of an OptionZero vault deposit. NToken holders absorb the
 ///         first dollar of loss if the hedge under-covers (tail risk), and in
 ///         return capture the residual stETH liquid staking yield left over
-///         after subsidising the rolling options premium cost.
+///         after subsidising the perp funding cost.
 ///
 /// @dev    In the vault's loss-waterfall model:
 ///           1. ETH price drops → wstETH collateral value falls in USD.
-///           2. The hedge (short DITM calls) offset this loss up to the
+///           2. The hedge (1x short ETH perp) offset this loss up to the
 ///              hedged notional.
 ///           3. Any residual unhedged loss is absorbed by the N tranche,
 ///              reducing NToken redemption value.

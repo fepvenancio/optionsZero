@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IPerpAdapter} from "../hedge/IPerpAdapter.sol";
-import {IOptionsPricer} from "../oracles/IOptionsPricer.sol";
+import {IPriceFeed} from "../oracles/IPriceFeed.sol";
 
 /// @title  YieldAccumulator
 /// @author OptionZero
@@ -101,7 +101,7 @@ contract YieldAccumulator {
     ////////////////////////////////////////////////////////////// */
 
     /// @param vault_       Address of Vault.
-    /// @param pricer_      Address of IOptionsPricer.
+    /// @param pricer_      Address of IPriceFeed.
     /// @param perpAdapter_ Address of IPerpAdapter.
     constructor(address vault_, address pricer_, address perpAdapter_) {
         YieldStorage storage $ = _getYieldStorage();
@@ -110,7 +110,7 @@ contract YieldAccumulator {
         $.perpAdapter = perpAdapter_;
         $.lastSnapshotTime = block.timestamp;
         // Record initial rate; first snapshot will compute delta from here.
-        $.lastWstETHRate = IOptionsPricer(pricer_).getWstETHRate();
+        $.lastWstETHRate = IPriceFeed(pricer_).getWstETHRate();
     }
 
     /* //////////////////////////////////////////////////////////////
@@ -128,7 +128,7 @@ contract YieldAccumulator {
     function snapshot() external {
         YieldStorage storage $ = _getYieldStorage();
 
-        uint256 currentRate = IOptionsPricer($.pricer).getWstETHRate();
+        uint256 currentRate = IPriceFeed($.pricer).getWstETHRate();
         uint256 lastRate = $.lastWstETHRate;
 
         // Compute yield delta: rate growth × total collateral.

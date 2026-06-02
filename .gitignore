@@ -19,16 +19,11 @@ contracts/broadcast/
 contracts/lib/
 
 # ------------------------------------------------------------
-#  Gelato Web3 Function (w3f/)
+#  Chainlink CRE
 # ------------------------------------------------------------
 
-# TypeScript build output
-w3f/dist/
-w3f/.build/
-
-# Gelato W3F test runner temp files
-w3f/.tmp/
-w3f/*.tmp
+cre/*.wasm
+cre/contracts/evm/src/generated/
 
 # ------------------------------------------------------------
 #  Node / pnpm
@@ -45,16 +40,6 @@ node_modules/
 .env
 .env.*
 !.env.example          # root-level example template
-!w3f/.env.example      # w3f subdirectory example template
-
-# Gelato secrets are managed via the Gelato dashboard, not files.
-# Do NOT add w3f-secrets.json or similar here.
-
-# ------------------------------------------------------------
-#  Rust / Cargo  (legacy daemon — replaced by w3f/)
-# ------------------------------------------------------------
-
-daemon/target/
 
 # ------------------------------------------------------------
 #  macOS

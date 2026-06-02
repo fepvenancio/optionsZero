@@ -11,9 +11,9 @@ import {Vault} from "../src/core/Vault.sol";
 ///         Adapted for the Perp model. Driven by the `PHASE` environment variable:
 ///           PHASE=1  Seed    -- Alice deposits 50 wstETH into the vault.
 ///           PHASE=2  Hedge   -- Open a perp position at exactly 100% TVL coverage.
-///                    sizeDelta = 0 -> daemon stays quiet (perfectly balanced).
+///                    sizeDelta = 0 -> keeper stays quiet (perfectly balanced).
 ///           PHASE=3  Imbalance -- Alice deposits 50 more wstETH, perp NOT resized.
-///                    sizeDelta = 50e18 >> 1% threshold -> daemon fires intent.
+///                    sizeDelta = 50e18 >> 1% threshold -> keeper fires intent.
 ///
 /// Usage (after sourcing deploy output):
 ///   PHASE=1 forge script script/Simulate.s.sol \
@@ -55,11 +55,11 @@ contract Simulate is Script {
             console.log("[Phase 1] Vault shares received:", shares);
             console.log("[Phase 1] totalAssets() =", vault.totalAssets());
             console.log("[Phase 1] totalDepositedAssets() =", vault.totalDepositedAssets());
-            console.log("[Phase 1] DONE -- daemon should stay quiet (no perp yet -> no imbalance check)");
+            console.log("[Phase 1] DONE -- keeper should stay quiet (no perp yet -> no imbalance check)");
         } else if (phase == 2) {
             // -- Phase 2: Open perp hedge at 100% coverage -------------------------
             // TVL = 50 wstETH. Open perp at exactly 50 wstETH notional.
-            // imbalance = |50 - 50| = 0 -> daemon stays quiet.
+            // imbalance = |50 - 50| = 0 -> keeper stays quiet.
             console.log("[Phase 2] Opening perp at 100% coverage (50 wstETH notional)...");
 
             uint256 tvl = vault.totalDepositedAssets();
@@ -69,12 +69,12 @@ contract Simulate is Script {
             console.logBytes32(posId);
             console.log("[Phase 2] totalHedgedNotional =", adapter.totalHedgedNotional());
             console.log("[Phase 2] TVL =", tvl);
-            console.log("[Phase 2] DONE -- daemon stays quiet (imbalance = 0)");
+            console.log("[Phase 2] DONE -- keeper stays quiet (imbalance = 0)");
         } else if (phase == 3) {
             // -- Phase 3: TVL grows, perp NOT resized -> imbalance fires -----------
             // Alice deposits another 50 wstETH -> TVL = 100 wstETH.
             // perpNotional is still 50 wstETH -> imbalance = 50 wstETH = 50% >> 1%.
-            // sizeDelta = +50e18 -> daemon emits IntentRequested + prints resize JSON.
+            // sizeDelta = +50e18 -> keeper emits IntentRequested + prints resize JSON.
             console.log("[Phase 3] Depositing 50 more wstETH (perp will NOT be resized)...");
 
             (bool ok,) = wstETH.call(abi.encodeWithSignature("approve(address,uint256)", vaultAddr, 50e18));
@@ -90,7 +90,7 @@ contract Simulate is Script {
 
             // Trigger the on-chain intent emission.
             vault.checkAndEmitIntent();
-            console.log("[Phase 3] IntentRequested emitted -- daemon prints resize JSON");
+            console.log("[Phase 3] IntentRequested emitted -- keeper prints resize JSON");
         } else {
             revert("Simulate: invalid PHASE (must be 1, 2, or 3)");
         }

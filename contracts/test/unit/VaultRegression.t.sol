@@ -96,7 +96,7 @@ contract VaultRegressionTest is Test {
     ///////////////////////////////////////////////////////////////
          When the perp notional exactly matches vault TVL (fully sized),
          checkAndEmitIntent() must stay silent.
-         Old options regression: DITM delta caused infinite trigger loop.
+         Historical regression: size imbalance trigger loop guard.
          Perp equivalent: constant delta = -1 never needs rebalancing on price moves.
     /////////////////////////////////////////////////////////////// */
 

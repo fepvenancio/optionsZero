@@ -12,7 +12,7 @@ pragma solidity ^0.8.24;
 ///
 ///         The batch itself transitions through two boolean flags:
 ///           !isClosed, !isSettled → OPEN   : accepts new requests
-///            isClosed, !isSettled → CLOSED : no new requests; awaiting daemon settlement
+///            isClosed, !isSettled → CLOSED : no new requests; awaiting keeper settlement
 ///            isClosed,  isSettled → SETTLED: users may claim
 library BatchTypes {
     /* //////////////////////////////////////////////////////////////
@@ -73,7 +73,7 @@ library BatchTypes {
     /// @notice Aggregate state for one redemption batch.
     ///
     /// @dev    One batch collects requests over a time window (BATCH_WINDOW_BLOCKS).
-    ///         The daemon closes the batch, resizes the perp on Hyperliquid, bridges
+    ///         The keeper closes the batch, resizes the perp on Hyperliquid, bridges
     ///         wstETH back, and calls `settleBatch(batchId, assetsReturned)`.
     ///
     ///         Pro-rata claim formula:
@@ -82,7 +82,7 @@ library BatchTypes {
     ///         If `assetsReturned < totalAssetsLocked` (slippage / fees on the bridge),
     ///         all users in the batch share the shortfall proportionally.
     struct BatchInfo {
-        /// @dev True once the daemon calls `closeBatch()`. No new requests accepted.
+        /// @dev True once the keeper calls `closeBatch()`. No new requests accepted.
         bool isClosed;
         /// @dev True once `settleBatch()` is called with bridged wstETH. Claims unlock.
         bool isSettled;

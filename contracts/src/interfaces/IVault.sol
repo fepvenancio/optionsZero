@@ -6,7 +6,7 @@ import {BatchTypes} from "../core/BatchTypes.sol";
 
 /// @title  IVault
 /// @notice External interface for the OptionZero ERC-4626 vault.
-///         Consumers (Trancher, daemon event listeners, integrators) depend
+///         Consumers (Trancher, off-chain monitor event listeners, integrators) depend
 ///         only on this interface — never on the concrete Vault implementation.
 interface IVault {
     /* //////////////////////////////////////////////////////////////
@@ -73,7 +73,7 @@ interface IVault {
     error Vault_RequestNotCancellable(bytes32 requestId);
 
     /// @dev Revert when cancelRequest() is called after the batch has been closed.
-    ///      Once the daemon has started the cross-chain unwind, cancellation is impossible.
+    ///      Once the keeper has started the cross-chain unwind, cancellation is impossible.
     error Vault_CannotCancelClosedBatch(bytes32 batchId);
 
     /* //////////////////////////////////////////////////////////////
@@ -82,7 +82,7 @@ interface IVault {
 
     // --- Legacy events ---
 
-    /// @notice Emitted when the daemon should submit a perp resize intent.
+    /// @notice Emitted when the keeper should submit a perp resize intent.
     /// @param  deltaDeviation  Signed size delta (wstETH units, 1e18).
     ///                         Positive = vault under-hedged (need more short notional).
     ///                         Negative = vault over-hedged (need to reduce short notional).
@@ -136,13 +136,13 @@ interface IVault {
     /// @param  shares     Vault shares returned to user.
     event RequestCancelled(bytes32 indexed requestId, address indexed user, uint128 shares);
 
-    /// @notice Emitted when the daemon closes the current batch.
+    /// @notice Emitted when the keeper closes the current batch.
     /// @param  batchId            The closed batch identifier.
     /// @param  totalSharesQueued  Total vault shares in this batch.
     /// @param  totalAssetsLocked  Total pro-rata weight (sum of assetsLocked).
     event BatchClosed(bytes32 indexed batchId, uint128 totalSharesQueued, uint128 totalAssetsLocked);
 
-    /// @notice Emitted when the daemon settles a batch with bridged wstETH.
+    /// @notice Emitted when the keeper settles a batch with bridged wstETH.
     /// @param  batchId        The settled batch identifier.
     /// @param  assetsReturned Actual wstETH received from the bridge.
     event BatchSettled(bytes32 indexed batchId, uint128 assetsReturned);
@@ -190,7 +190,7 @@ interface IVault {
 
     // --- Perp trigger (unchanged) ---
 
-    /// @notice Callable by the daemon to emit IntentRequested when perp is imbalanced.
+    /// @notice Callable by the keeper to emit IntentRequested when perp is imbalanced.
     function checkAndEmitIntent() external;
 
     // --- Ownership ---
@@ -206,7 +206,7 @@ interface IVault {
     /// @dev    Only callable by the owner (Fix 2). In production, the owner should
     ///         be a multisig or timelock before calling this on mainnet.
     ///
-    /// @param  settler_  Address of the daemon EOA or multisig that controls batch flow.
+    /// @param  settler_  Address of the keeper EOA or multisig that controls batch flow.
     function setSettler(address settler_) external;
 
     // --- Batch lifecycle ---
@@ -261,7 +261,7 @@ interface IVault {
     ///
     /// @dev    Only the original requester (`request.user`) may cancel.
     ///         Cancellation is only possible while the batch is still OPEN.
-    ///         Once the daemon closes the batch (signals the cross-chain unwind has started),
+    ///         Once the keeper closes the batch (signals the cross-chain unwind has started),
     ///         cancellation is permanently disabled for that batch.
     ///
     ///         Effects (all reversed):
@@ -276,7 +276,7 @@ interface IVault {
     /// @notice Close the currently-open batch and open a new one.
     ///
     /// @dev    Only callable by the settler address. After closure, no new requests
-    ///         can join this batch. The daemon then resizes the perp on Hyperliquid,
+    ///         can join this batch. The keeper then resizes the perp on Hyperliquid,
     ///         bridges wstETH, and calls settleBatch().
     ///
     /// @return closedBatchId  The ID of the batch that was just closed.

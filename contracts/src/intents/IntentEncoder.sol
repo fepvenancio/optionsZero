@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 /// @title  IntentEncoder
 /// @author OptionZero
 /// @notice Encodes and hashes rebalance intent payloads that the off-chain
-///         Rust daemon will sign and submit to the NEAR Intents solver bus.
+///         Rust off-chain monitor will sign and submit to the NEAR Intents solver bus.
 ///
 /// @dev    The outer envelope follows the ERC-7683 CrossChainOrder struct so
 ///         that the intent is immediately compatible with ERC-7683-aware fillers.
@@ -12,12 +12,12 @@ pragma solidity ^0.8.24;
 ///         an ABI-encoded RebalanceIntentData struct.
 ///
 ///         Flow:
-///           1. On-chain: daemon reads emitted IntentRequested event.
-///           2. Off-chain: daemon calls encodeIntent() (or replicates it in Rust)
+///           1. On-chain: keeper reads emitted IntentRequested event.
+///           2. Off-chain: keeper calls encodeIntent() (or replicates it in Rust)
 ///              to produce the bytes payload.
-///           3. Off-chain: daemon hashes with hashIntent() and signs via NEAR
+///           3. Off-chain: keeper hashes with hashIntent() and signs via NEAR
 ///              Chain Signatures MPC (v1.signer / v1.signer-prod.testnet).
-///           4. Off-chain: daemon posts the assembled intent to the NEAR
+///           4. Off-chain: keeper posts the assembled intent to the NEAR
 ///              Intents solver bus; solver fulfils cross-chain.
 ///
 ///         All intents are stateless and idempotent — replay is prevented by
@@ -32,7 +32,7 @@ contract IntentEncoder {
     struct CrossChainOrder {
         /// @dev Protocol settler contract (Vault address on origin chain).
         address originSettler;
-        /// @dev Address that authorised this order (daemon's signing address).
+        /// @dev Address that authorised this order (keeper's signing address).
         address user;
         /// @dev Monotonic nonce scoped to `user`. Prevents replay.
         uint256 nonce;
@@ -78,12 +78,12 @@ contract IntentEncoder {
 
     /// @notice ABI-encode a CrossChainOrder intent for NEAR submission.
     /// @param  order The fully populated CrossChainOrder.
-    /// @return encoded ABI-encoded bytes ready to be signed by the daemon.
+    /// @return encoded ABI-encoded bytes ready to be signed by the keeper.
     function encodeIntent(CrossChainOrder calldata order) external pure returns (bytes memory encoded) {
         encoded = abi.encode(order);
     }
 
-    /// @notice Keccak256 hash of a CrossChainOrder — the payload the daemon signs.
+    /// @notice Keccak256 hash of a CrossChainOrder — the payload the keeper signs.
     /// @param  order The intent to hash.
     /// @return intentHash The 32-byte hash.
     function hashIntent(CrossChainOrder calldata order) external pure returns (bytes32 intentHash) {
@@ -107,7 +107,7 @@ contract IntentEncoder {
     }
 
     /// @notice Build the orderData bytes from a RebalanceIntentData struct.
-    ///         Convenience for tests; daemon replicates this logic in Rust.
+    ///         Convenience for tests; keeper replicates this logic in Rust.
     function encodeOrderData(RebalanceIntentData calldata data) external pure returns (bytes memory) {
         return abi.encode(data);
     }

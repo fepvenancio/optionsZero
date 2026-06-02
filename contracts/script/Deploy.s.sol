@@ -199,7 +199,7 @@ contract Deploy is Script {
         vm.stopBroadcast();
 
         // -- Output: KEY=value pairs for shell sourcing -------------------------
-        console.log("# OptionZero Perp Deployment -- source this output to configure the daemon");
+        console.log("# OptionZero Perp Deployment -- source this output to configure the keeper");
         console.log("# Generated at block:", block.number);
         console.log("");
         console.log("WSTETH_ADDRESS=%s", wstETH);
@@ -211,8 +211,8 @@ contract Deploy is Script {
         console.log("YIELD_ACCUM_ADDRESS=%s", address(yieldAccum));
         console.log("ENCODER_ADDRESS=%s", address(encoder));
         console.log("");
-        // ABI selectors for the daemon's eth_call reads.
-        console.log("# ABI selectors (4-byte, for daemon eth_call reads)");
+        // ABI selectors for the keeper's eth_call reads.
+        console.log("# ABI selectors (4-byte, for keeper eth_call reads)");
         console.logBytes4(MockPerpAdapter.totalHedgedNotional.selector);
         console.logBytes4(MockPerpAdapter.accruedFunding.selector);
         console.logBytes4(Vault.totalAssets.selector);

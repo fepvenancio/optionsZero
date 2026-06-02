@@ -42,7 +42,7 @@ contract MocVault {
 ///         Fix 3 (Flash Loan): coverage reads totalDepositedAssets(), not totalAssets().
 ///
 /// @dev    After the Options → Perp refactor:
-///         - MockPerpAdapter replaces MockOptionAdapter.
+///         - MockPerpAdapter used for perp coverage.
 ///         - Coverage uses wstETH-denominated notional (no oracle needed).
 ///         - No gamma or delta assertions — perp delta is a constant -1.0.
 ///         - openPosition(wstETH_notional) replaces openPosition(USD, strike, expiry, isCall).

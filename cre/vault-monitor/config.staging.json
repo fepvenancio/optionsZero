@@ -1,0 +1,11 @@
+{
+  "schedule": "0 */5 * * * *",
+  "imbalanceThresholdBps": 100,
+  "evms": [
+    {
+      "vaultAddress": "0x43A7bbbd3ad6D4F7a7e3D8277D6271f9C9f8cffD",
+      "adapterAddress": "0x343F8BF65EEA92b067b04431f4c579CB6276Ad83",
+      "chainName": "ethereum-testnet-sepolia"
+    }
+  ]
+}

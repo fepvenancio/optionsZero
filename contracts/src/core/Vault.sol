@@ -32,7 +32,7 @@ import {Constants} from "./Constants.sol";
 ///            Trancher.merge() burns proportional P and N before the underlying
 ///            is released.
 ///
-///         4. REBALANCE TRIGGER: Any address (intended to be the daemon bot) can
+///         4. REBALANCE TRIGGER: Any address (intended to be the keeper) can
 ///            call checkAndEmitIntent() to compare totalDepositedAssets() against
 ///            the perp adapter's totalHedgedNotional() and emit IntentRequested
 ///            when the size imbalance exceeds IMBALANCE_THRESHOLD_BPS (1%).
@@ -92,7 +92,7 @@ contract Vault is ERC4626, IVault {
         address owner;
 
         /// @dev Privileged address that can call closeBatch() and settleBatch().
-        ///      In production: multisig or NEAR MPC key. In POC: daemon EOA.
+        ///      In production: multisig or NEAR MPC key. In POC: keeper EOA.
         address settler;
 
         // --- Batch lifecycle state ---
@@ -405,7 +405,7 @@ contract Vault is ERC4626, IVault {
     ///
     /// @dev    Fix 3 — Emergency cancel (pre-close only):
     ///           Reverses Phase 1 entirely. Only valid while the batch is open.
-    ///           Once the daemon calls closeBatch(), the cross-chain unwind has
+    ///           Once the keeper calls closeBatch(), the cross-chain unwind has
     ///           started and cancellation is no longer safe.
     ///
     ///         CEI order:
@@ -474,9 +474,9 @@ contract Vault is ERC4626, IVault {
 
     /// @inheritdoc IVault
     ///
-    /// @dev    Only the settler (daemon) may close a batch.
+    /// @dev    Only the settler (keeper) may close a batch.
     ///         Closing stops new requests from joining this batch, signals the
-    ///         daemon to downsize the perp on Hyperliquid, and opens a new batch
+    ///         keeper to downsize the perp on Hyperliquid, and opens a new batch
     ///         so deposits and new requests continue uninterrupted.
     function closeBatch() external override returns (bytes32 closedBatchId, bytes32 newBatchId) {
         VaultStorage storage $ = _getVaultStorage();

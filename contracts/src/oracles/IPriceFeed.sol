@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title  IOptionsPricer
-/// @notice Minimal oracle interface consumed by Vault and Trancher.
+/// @title  IPriceFeed
+/// @notice Minimal price oracle interface consumed by Vault and Trancher.
 ///         Returns ETH/USD price and the wstETH/stETH exchange rate, both
 ///         sourced from Chainlink-compatible aggregators in the POC.
 /// @dev    All prices use the Chainlink 8-decimal convention (1e8 = $1.00).
 ///         The wstETH rate uses 18-decimal convention (1e18 = 1 stETH).
-interface IOptionsPricer {
+interface IPriceFeed {
     /* ///////////////////////////////////////////////////////////////
                                  ERRORS
     /////////////////////////////////////////////////////////////// */
 
     /// @dev Reverts when a price feed returns a stale answer.
-    error IOptionsPricer_StalePrice(uint256 updatedAt, uint256 maxAge);
+    error IPriceFeed_StalePrice(uint256 updatedAt, uint256 maxAge);
 
     /// @dev Reverts when a price feed returns a non-positive answer.
-    error IOptionsPricer_InvalidPrice(int256 answer);
+    error IPriceFeed_InvalidPrice(int256 answer);
 
     /* ///////////////////////////////////////////////////////////////
                                 FUNCTIONS

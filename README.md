@@ -1,6 +1,6 @@
 # OptionZero
 
-> **Delta-neutral synthetic fiat vault — Proof of Concept**
+> **Delta-neutral synthetic fiat vault — POC**
 >
 > Accepts wstETH deposits → strips ETH price delta via a 1× short ETH perpetual
 > future on Hyperliquid → tranches risk into a stable **P token** (ozP) and a
@@ -38,7 +38,7 @@ cross-chain perp position to be unwound before wstETH is bridged back:
 | Phase | Who calls | What happens |
 |---|---|---|
 | **1 — Request** | User | `requestRedeem()` — P+N burned, shares locked, assets snapshotted |
-| **2 — Settle** | Gelato W3F → NEAR solver → Hyperliquid → bridge | `closeBatch()` + `settleBatch()` — perp downsized, wstETH bridged back |
+| **2 — Settle** | CRE Keeper / NEAR solver → Hyperliquid → bridge | `closeBatch()` + `settleBatch()` — perp downsized, wstETH bridged back |
 | **3 — Claim** | User | `claimRedeemedAssets()` — pro-rata wstETH released |
 
 ---
@@ -50,17 +50,13 @@ cross-chain perp position to be unwound before wstETH is bridged back:
 | Tool | Version |
 |---|---|
 | [Foundry](https://getfoundry.sh) | `forge 1.6+` |
-| [pnpm](https://pnpm.io) | `9+` |
-| [Anvil](https://book.getfoundry.sh/anvil/) | Ships with Foundry |
+| [Go](https://go.dev) | `1.25+` |
+| [CRE CLI](https://docs.chain.link/cre) | Latest |
 
 ### Install dependencies
 
 ```bash
-# Solidity
 cd contracts && forge install
-
-# Gelato Web3 Function
-cd ../w3f && pnpm install
 ```
 
 ### Run tests
@@ -113,6 +109,7 @@ forge script script/Deploy.s.sol \
 
 | Contract | Address |
 |---|---|
+| `MockWstETH` | `0x67B01481B9bAC7d0d4dc08473956FfAb91e08DDc` |
 | `Vault` | `0x43A7bbbd3ad6D4F7a7e3D8277D6271f9C9f8cffD` |
 | `Trancher` | `0x3Fa9b5033dD2Edb7e598834587fF7EA989fA55D4` |
 | `MockPerpAdapter` | `0x343F8BF65EEA92b067b04431f4c579CB6276Ad83` |
@@ -120,23 +117,34 @@ forge script script/Deploy.s.sol \
 | `NToken (ozN)` | `0x53dFCDf660e386bb8c01a058a3BC2f4773eDbC87` |
 | `YieldAccumulator` | `0xc01f7DA356215254a0598eD5edD94a228ec60012` |
 | `IntentEncoder` | `0xb65C2d24591D0A12Bc650AE336e9EA2964e2b102` |
-| `MockWstETH` | `0x67B01481B9bAC7d0d4dc08473956FfAb91e08DDc` |
 
-### Run the Gelato Web3 Function locally
+---
+
+## CRE Vault Monitor
+
+The off-chain monitor runs as a **Chainlink CRE** (Compute Runtime Environment)
+cron workflow, compiled to WASM and deployed to a Decentralised Oracle Network
+(DON). It watches Vault and MockPerpAdapter state on Sepolia and fires ERC-7683
+intents into `intents.testnet` when either trigger condition is met.
+
+| Trigger | Condition | Intent emitted |
+|---|---|---|
+| **Size imbalance** | `\|TVL − perpNotional\| / TVL > 1%` | `RESIZE_SHORT_PERP` |
+| **Pending batch** | `totalPendingRedemption > 0` | `SETTLE_REDEMPTION_BATCH` |
+
+### Simulate locally
 
 ```bash
-cd w3f
-
-# Type-check
-pnpm lint
-
-# Run against Sepolia with Gelato test runner
-npx @gelatonetwork/web3-functions-sdk@latest test src/index.ts \
-  --show-logs \
-  --user-args '{"vaultAddress":"0x67ecf07E977cd869b1B407312647116101e3DFb4","adapterAddress":"0x007CeBEfE42E75a9aCc132ad337771A207f9F3f9","imbalanceThresholdBps":100,"batchWindowBlocks":300}'
+cd cre
+cre workflow simulate vault-monitor --target staging-settings
 ```
 
-Secrets (`NEAR_ACCOUNT_ID`, `NEAR_PRIVATE_KEY`, `NEAR_RPC_URL`) are managed via the [Gelato App dashboard](https://app.gelato.network) — never stored in files.
+### Deploy to DON
+
+```bash
+cre account access
+cre workflow deploy vault-monitor --target staging-settings
+```
 
 ---
 
@@ -159,7 +167,7 @@ optionsZero/
 │   │   │   ├── IPerpAdapter.sol       ← Perp venue abstraction interface
 │   │   │   └── MockPerpAdapter.sol    ← Configurable POC stub (flat −1.0 delta)
 │   │   ├── oracles/
-│   │   │   └── IOptionsPricer.sol     ← Oracle interface (wstETH/USD rate)
+│   │   │   └── IPriceFeed.sol         ← Oracle interface (wstETH/USD rate)
 │   │   ├── intents/
 │   │   │   └── IntentEncoder.sol      ← ERC-7683 CrossChainOrder ABI helpers
 │   │   └── interfaces/
@@ -179,14 +187,19 @@ optionsZero/
 │       ├── Deploy.s.sol               ← Full deployment script
 │       └── Simulate.s.sol             ← Rebalance simulation
 │
-├── w3f/                               ← Gelato Web3 Function (TypeScript)
-│   ├── src/
-│   │   └── index.ts                   ← W3F handler: 2-trigger monitor + NEAR submission
-│   ├── schema.json                    ← Gelato userArgs schema
-│   └── package.json
-│
-├── scripts/
-│   └── run_e2e.sh                     ← Local end-to-end simulation script
+├── cre/                               ← Chainlink CRE project
+│   ├── vault-monitor/
+│   │   ├── main.go                    ← CRE workflow entry point
+│   │   ├── workflow.go                ← Monitor logic: triggers + intent builder
+│   │   ├── workflow_test.go           ← Unit tests
+│   │   ├── workflow.yaml              ← CRE workflow definition
+│   │   ├── config.staging.json        ← Staging DON settings
+│   │   └── config.production.json     ← Production DON settings
+│   ├── contracts/                     ← On-chain bindings for CRE
+│   ├── go.mod
+│   ├── go.sum
+│   ├── project.yaml                   ← CRE project manifest
+│   └── secrets.yaml                   ← Secret references (never plaintext)
 │
 └── docs/
     └── 01_metalearning_map.md         ← Full architecture reference
@@ -207,41 +220,13 @@ optionsZero/
 
 ---
 
-## Gelato Web3 Function
-
-The [`w3f/src/index.ts`](w3f/src/index.ts) is the off-chain monitor. It runs on Gelato's cron infrastructure and fires two types of ERC-7683 intents into `intents.testnet`:
-
-| Trigger | Condition | Intent emitted |
-|---|---|---|
-| **Size imbalance** | `\|TVL − perpNotional\| / TVL > imbalanceThresholdBps / 10_000` | `RESIZE_SHORT_PERP` |
-| **Pending batch** | `totalPendingRedemption > 0` AND batch open `≥ batchWindowBlocks` | `SETTLE_REDEMPTION_BATCH` |
-
-Gelato W3F `userArgs` (set in the Gelato dashboard):
-
-| Arg | Default | Description |
-|---|---|---|
-| `vaultAddress` | — | Deployed `Vault` address (required) |
-| `adapterAddress` | — | Deployed `MockPerpAdapter` address (required) |
-| `imbalanceThresholdBps` | `100` | Size imbalance threshold in basis points (100 = 1%) |
-| `batchWindowBlocks` | `300` | Blocks a batch must be open before settlement fires (≈ 1 h) |
-
-Gelato secrets (set in the Gelato dashboard, never in files):
-
-| Secret | Description |
-|---|---|
-| `NEAR_ACCOUNT_ID` | NEAR testnet account that submits to `intents.testnet` |
-| `NEAR_PRIVATE_KEY` | ed25519 private key for that account (`ed25519:...`) |
-| `NEAR_RPC_URL` | NEAR RPC endpoint (default: `https://rpc.testnet.near.org`) |
-
----
-
 ## POC Boundaries
 
 Explicitly out of scope:
 
-1. **Real oracle** — `IOptionsPricer` is an interface only. No live Chainlink adapter.
+1. **Real oracle** — `IPriceFeed` is an interface only. No live Chainlink adapter deployed.
 2. **Real perp venue** — `MockPerpAdapter` only. No live Hyperliquid adapter.
-3. **NEAR MPC signing** — W3F uses a plain ed25519 key; production should use NEAR Chain Signatures for MPC-based threshold signing.
+3. **CRE production deployment** — The CRE workflow runs against staging DON settings. Production DON deployment requires Chainlink node operator onboarding.
 4. **Emergency pause / governance** — Thresholds are hardcoded constants.
 5. **ozP secondary market peg** — No Curve/Balancer pool. Soft peg only.
-6. **Production batch accounting** — `batch.totalAssetsLocked` used for pro-rata; W3F uses `totalPendingRedemption` as a POC approximation of assets to bridge.
+6. **Production batch accounting** — `batch.totalAssetsLocked` used for pro-rata; CRE keeper uses `totalPendingRedemption` as a POC approximation of assets to bridge.

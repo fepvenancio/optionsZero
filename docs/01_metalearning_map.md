@@ -69,14 +69,14 @@ Viability condition:
 └──────────────────────┬───────────────────────────────────────┘
                        │  IntentRequested event
 ┌──────────────────────▼───────────────────────────────────────┐
-│         OFF-CHAIN LAYER  (Gelato Web3 Function)              │
+│         OFF-CHAIN LAYER  (Chainlink CRE Workflow)            │
 │                                                              │
-│  w3f/src/index.ts  (cron-triggered)                          │
+│  cre/vault-monitor/  (cron-triggered WASM on DON)            │
 │    ├─ Trigger 1: size imbalance  → RESIZE_SHORT_PERP         │
 │    └─ Trigger 2: pending batch   → SETTLE_REDEMPTION_BATCH   │
 │                                                              │
-│  Builds CrossChainOrder JSON → submitToNear()                │
-│  (near-api-js v3 account.functionCall to intents.testnet)    │
+│  Builds CrossChainOrder JSON → submits to NEAR intents bus   │
+│  (ed25519 signing via CRE secrets)                           │
 └──────────────────────┬───────────────────────────────────────┘
                        │
 ┌──────────────────────▼───────────────────────────────────────┐
@@ -102,17 +102,18 @@ Viability condition:
 | **NToken (ozN)** | `src/tokens/NToken.sol` | ERC-20. Risky tranche. Absorbs tail risk, earns residual funding income. Mint/burn by Trancher only. |
 | **IPerpAdapter** | `src/hedge/IPerpAdapter.sol` | Interface for any perp venue. Exposes `currentDelta()`, `totalHedgedNotional()`, `accruedFunding()`, `fundingRatePerBlock()`, position lifecycle. |
 | **MockPerpAdapter** | `src/hedge/MockPerpAdapter.sol` | POC stub. Always returns δ = −1.0e18. Configurable `fundingRatePerBlock` (signed). ERC-7201 namespaced storage. Used exclusively in tests and Anvil. |
-| **IOptionsPricer** | `src/oracles/IOptionsPricer.sol` | Oracle interface. Returns ETH/USD price and wstETH conversion rate. |
+| **IPriceFeed** | `src/oracles/IPriceFeed.sol` | Oracle interface. Returns ETH/USD price and wstETH conversion rate. |
 | **IntentEncoder** | `src/intents/IntentEncoder.sol` | Stateless ABI encoder. Produces ERC-7683 `CrossChainOrder` bytes from rebalance/settlement parameters. |
 | **IVault** | `src/interfaces/IVault.sol` | Complete vault interface. Declares all events (including batch lifecycle) and custom errors. |
 
-### Off-chain (Gelato Web3 Function)
+### Off-chain (Chainlink CRE Workflow)
 
 | Module | File | Role |
 |---|---|---|
-| **W3F handler** | `w3f/src/index.ts` | Cron-triggered entry point. Reads Vault and MockPerpAdapter state via `ethers.Contract`. Evaluates both triggers and submits intents to `intents.testnet`. |
-| **submitToNear** | `w3f/src/index.ts` | Inline async function. Uses `near-api-js` v3 `account.functionCall()` for ed25519 signing, borsh serialisation and broadcast. |
-| **schema.json** | `w3f/schema.json` | Gelato userArgs schema. Declares `vaultAddress`, `adapterAddress`, `imbalanceThresholdBps`, `batchWindowBlocks`. |
+| **Workflow entry** | `cre/vault-monitor/main.go` | CRE workflow entry point. Registers the vault-monitor workflow with the CRE runtime. |
+| **Monitor logic** | `cre/vault-monitor/workflow.go` | Cron-triggered handler. Reads Vault and MockPerpAdapter state via on-chain RPC. Evaluates both triggers and builds ERC-7683 intents for submission to `intents.testnet`. |
+| **Workflow definition** | `cre/vault-monitor/workflow.yaml` | CRE workflow manifest. Declares triggers, capabilities, and target DON configuration. |
+| **Config (staging)** | `cre/vault-monitor/config.staging.json` | Staging DON settings: RPC endpoints, contract addresses, threshold parameters. |
 
 ---
 
@@ -205,7 +206,7 @@ fundingAccrued  = fundingRatePerBlock × blocks × totalHedgedNotional / 1e18
 if fundingAccrued > 0:
   totalYieldAccumulated += fundingAccrued     ← vault earns
 else:
-  budget_remaining = totalYieldAccumulated − totalPremiumConsumed
+  budget_remaining = totalYieldAccumulated − totalFundingConsumed
   if budget_remaining < |fundingAccrued|:
     revert YieldAccumulator_InsufficientBudget ← circuit breaker
 ```
@@ -231,7 +232,7 @@ optionsZero/
 │   │   │   ├── IPerpAdapter.sol       ← Perp venue interface
 │   │   │   └── MockPerpAdapter.sol    ← POC stub
 │   │   ├── oracles/
-│   │   │   └── IOptionsPricer.sol     ← Oracle interface
+│   │   │   └── IPriceFeed.sol         ← Oracle interface
 │   │   ├── intents/
 │   │   │   └── IntentEncoder.sol      ← ERC-7683 helpers
 │   │   └── interfaces/
@@ -251,17 +252,22 @@ optionsZero/
 │       ├── Deploy.s.sol
 │       └── Simulate.s.sol
 │
-├── w3f/                               ← Gelato Web3 Function
-│   ├── src/
-│   │   └── index.ts                   ← W3F handler: monitor + NEAR submission
-│   ├── schema.json                    ← Gelato userArgs schema
-│   └── package.json
+├── cre/                               ← Chainlink CRE project
+│   ├── vault-monitor/
+│   │   ├── main.go                    ← Workflow entry point
+│   │   ├── workflow.go                ← Monitor logic: triggers + intent builder
+│   │   ├── workflow_test.go           ← Unit tests
+│   │   ├── workflow.yaml              ← CRE workflow definition
+│   │   ├── config.staging.json        ← Staging DON settings
+│   │   └── config.production.json     ← Production DON settings
+│   ├── contracts/                     ← On-chain bindings for CRE
+│   ├── go.mod
+│   ├── go.sum
+│   ├── project.yaml                   ← CRE project manifest
+│   └── secrets.yaml                   ← Secret references
 │
-├── docs/
-│   └── 01_metalearning_map.md         ← THIS FILE
-│
-└── scripts/
-    └── run_e2e.sh                     ← Local end-to-end simulation script
+└── docs/
+    └── 01_metalearning_map.md         ← THIS FILE
 ```
 
 ---
@@ -278,39 +284,39 @@ optionsZero/
 | **wstETH over stETH** | stETH rebases daily, breaking ERC-4626 share accounting. wstETH holds shares; yield accrues as the exchange rate rises. |
 | **Solady ERC4626 base** | Virtual-offset inflation attack protection built-in (no dead shares needed). Gas-optimised. Battle-tested. |
 | **ERC-7201 namespaced storage** | Future-proofs for UUPS upgradeability without storage collisions. Good engineering practice even in immutable POC. |
-| **Gelato W3F over Rust daemon** | Serverless execution model — no persistent process to manage, no key file on disk, secrets stay in Gelato's encrypted vault, cron scheduling included. Dramatically simpler ops. |
-| **near-api-js v3 in W3F** | `account.functionCall()` handles ed25519 signing + borsh serialisation internally. No custom crypto needed in the W3F. |
-| **ERC-7683 intent schema** | W3F output is plug-and-play with ERC-7683 fillers today. NEAR Chain Signatures is the live execution layer. `IntentKind` enum routes rebalance vs settlement to different solver handlers. |
+| **Chainlink CRE for off-chain compute** | DON-hosted execution model — verifiable off-chain compute, decentralised consensus on trigger evaluation, no single-server trust assumption. Workflows compile to WASM and run on the DON's cron scheduler. |
+| **ERC-7683 intent schema** | CRE output is plug-and-play with ERC-7683 fillers today. NEAR Chain Signatures is the live execution layer. `IntentKind` enum routes rebalance vs settlement to different solver handlers. |
 
 ---
 
-## 7 — W3F Deduplication (Storage-Based BatchMonitor)
+## 7 — CRE DON Deduplication (Consensus-Based BatchMonitor)
 
-The W3F uses Gelato's persistent `storage` API to prevent duplicate settlement
-intents across cron cycles:
+The CRE workflow relies on the DON's consensus mechanism to prevent duplicate
+settlement intents across cron cycles. Unlike single-server storage APIs, the
+DON's consensus layer ensures that all nodes agree on the trigger evaluation
+before an intent is emitted.
 
 ```
-Per-cycle logic:
+Per-cycle logic (executed by each DON node):
 
-  storageKey = `batch_first_seen_${currentBatchId}`
+  1. Read currentBatchId from Vault contract
+  2. Read batch.isClosed and totalPendingRedemption
 
-  if storageKey not set:
-    storage.set(storageKey, currentBlock)   ← first time we see this batch
+  if totalPendingRedemption > 0 AND batch is open:
+    → consensus round: all nodes evaluate the same on-chain state
+    → if ≥ threshold nodes agree: emit SETTLE_REDEMPTION_BATCH
+    → intent is signed by the DON's threshold key
 
-  blocksElapsed = currentBlock − storage.get(storageKey)
-
-  if blocksElapsed >= batchWindowBlocks AND pendingShares > 0:
-    emit SETTLE_REDEMPTION_BATCH
-    storage.delete(storageKey)              ← reset on settlement so next batch starts fresh
+  Batch rotation:
+    → new currentBatchId after settleBatch() → next cycle evaluates fresh state
+    → settled batches are naturally skipped (totalPendingRedemption == 0)
 ```
 
 Key properties:
-- **No duplicate settlement** — storage key is deleted after emission; new cycles skip the `>= window` check until a new batch is observed.
-- **Batch rotation** — new `currentBatchId` → new `storageKey` → timer resets automatically.
-- **Startup safe** — first cycle sets `firstSeenBlock = currentBlock` so the window starts from observation, not from genesis.
-
-Default window: **300 blocks ≈ 1 hour** (mainnet 12 s/block).
-Override: `batchWindowBlocks` userArg in Gelato dashboard.
+- **No duplicate settlement** — DON consensus ensures exactly-once emission per batch cycle. Once `settleBatch()` is called on-chain, the next cycle reads fresh state and skips the settled batch.
+- **Batch rotation** — new `currentBatchId` after settlement → the workflow naturally observes the next batch without explicit state cleanup.
+- **Byzantine-fault tolerant** — requires ≥ f+1 nodes to agree on trigger conditions before emitting. No single node can unilaterally fire an intent.
+- **No persistent off-chain storage** — all state is read from the on-chain contracts each cycle. The DON is stateless between invocations.
 
 ---
 
@@ -318,12 +324,12 @@ Override: `batchWindowBlocks` userArg in Gelato dashboard.
 
 Explicitly out of scope:
 
-1. **Real oracle** — `IOptionsPricer` is an interface only. No live Chainlink adapter deployed.
+1. **Real oracle** — `IPriceFeed` is an interface only. No live Chainlink adapter deployed.
 2. **Real perp venue adapter** — `MockPerpAdapter` only. No live Hyperliquid on-chain bindings.
-3. **NEAR MPC signing** — W3F uses a plain ed25519 key. Production should use NEAR Chain Signatures for threshold MPC signing without key custody.
+3. **CRE production deployment** — The CRE workflow runs against staging DON settings. Production DON deployment requires Chainlink node operator onboarding.
 4. **Emergency shutdown / pause** — Thresholds are hardcoded constants. No governance.
 5. **ozP secondary market peg** — No Curve/Balancer pool. Soft accounting peg only.
-6. **Production batch accounting** — W3F approximates bridge amount as `totalPendingRedemption`. Production should read `batch.totalAssetsLocked` directly from the settled batch struct.
+6. **Production batch accounting** — CRE keeper approximates bridge amount as `totalPendingRedemption`. Production should read `batch.totalAssetsLocked` directly from the settled batch struct.
 
 ---
 
@@ -337,7 +343,7 @@ For a new engineer:
 4. [`Vault.sol`](../contracts/src/core/Vault.sol) — entry point for all value flows + batch lifecycle.
 5. [`Trancher.sol`](../contracts/src/core/Trancher.sol) — the split/merge math.
 6. [`MockPerpAdapter.sol`](../contracts/src/hedge/MockPerpAdapter.sol) — how the POC simulates the perp venue.
-7. [`w3f/src/index.ts`](../w3f/src/index.ts) — how the W3F decides when and what to emit.
+7. [`cre/vault-monitor/workflow.go`](../cre/vault-monitor/workflow.go) — how the CRE workflow decides when and what to emit.
 8. [`test/unit/VaultBatch.unit.t.sol`](../contracts/test/unit/VaultBatch.unit.t.sol) — the complete async exit lifecycle in tests.
 9. [`test/unit/VaultSecurity.unit.t.sol`](../contracts/test/unit/VaultSecurity.unit.t.sol) — the security model: allowance enforcement, emergency cancel, slippage guards.
 10. [`test/integration/E2E.t.sol`](../contracts/test/integration/E2E.t.sol) — the full protocol flow end-to-end.

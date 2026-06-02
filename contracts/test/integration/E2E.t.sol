@@ -61,7 +61,7 @@ contract FixedPricer {
 ///           4. YieldAccumulator
 ///
 ///         Key changes from Options model:
-///           - MockPerpAdapter replaces MockOptionAdapter (constant delta -1.0, no gamma)
+///           - MockPerpAdapter (constant delta -1.0, no gamma)
 ///           - Rebalance trigger: TVL vs perpNotional imbalance > 1% (not delta drift)
 ///           - Funding replaces theta: signed, scales with notional, positive = vault earns
 contract E2ETest is Test {
