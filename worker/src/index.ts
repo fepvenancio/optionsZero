@@ -1,6 +1,7 @@
 import { Hono } from "hono";
-import { type Address } from "viem";
+import { type Address, type Hex } from "viem";
 import { runMonitorCycle, logResult, type MonitorResult } from "./monitor";
+import { executeAll, type ExecutionResult } from "./executor";
 
 /* ///////////////////////////////////////////////////////////////
                          ENV BINDINGS
@@ -12,6 +13,7 @@ type Bindings = {
   ADAPTER_ADDRESS: string;
   IMBALANCE_THRESHOLD_BPS: string;
   API_SECRET: string;
+  KEEPER_PRIVATE_KEY: string;
 };
 
 /* ///////////////////////////////////////////////////////////////
@@ -37,7 +39,16 @@ function serialiseResult(result: MonitorResult) {
   };
 }
 
-function buildConfig(env: Bindings) {
+function serialiseExecution(results: ExecutionResult[]) {
+  return results.map((r) => ({
+    intent: r.intent.kind,
+    txHash: r.txHash,
+    success: r.success,
+    error: r.error ?? null,
+  }));
+}
+
+function buildMonitorConfig(env: Bindings) {
   return {
     rpcUrl: env.SEPOLIA_RPC_URL,
     vaultAddress: env.VAULT_ADDRESS as Address,
@@ -46,8 +57,18 @@ function buildConfig(env: Bindings) {
   };
 }
 
+function buildExecutorConfig(env: Bindings) {
+  return {
+    ...buildMonitorConfig(env),
+    privateKey: env.KEEPER_PRIVATE_KEY as Hex,
+  };
+}
+
 /** Validate Bearer token against the API_SECRET. */
-function isAuthorised(c: { req: { header: (name: string) => string | undefined }; env: Bindings }): boolean {
+function isAuthorised(c: {
+  req: { header: (name: string) => string | undefined };
+  env: Bindings;
+}): boolean {
   const auth = c.req.header("Authorization");
   if (!auth) return false;
   const token = auth.replace("Bearer ", "");
@@ -68,16 +89,46 @@ app.get("/", (c) => {
   });
 });
 
-/// GET /monitor — protected manual trigger
+/// GET /monitor — protected: read-only monitor cycle
 app.get("/monitor", async (c) => {
   if (!isAuthorised(c)) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const config = buildConfig(c.env);
+  const config = buildMonitorConfig(c.env);
   const result = await runMonitorCycle(config);
   logResult(result);
   return c.json(serialiseResult(result));
+});
+
+/// POST /execute — protected: run monitor + execute any fired intents
+app.post("/execute", async (c) => {
+  if (!isAuthorised(c)) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const monitorConfig = buildMonitorConfig(c.env);
+  const executorConfig = buildExecutorConfig(c.env);
+
+  // Step 1: Monitor
+  const result = await runMonitorCycle(monitorConfig);
+  logResult(result);
+
+  if (result.intents.length === 0) {
+    return c.json({
+      monitor: serialiseResult(result),
+      executions: [],
+      message: "No intents fired — vault is balanced",
+    });
+  }
+
+  // Step 2: Execute
+  const execResults = await executeAll(executorConfig, result.intents);
+
+  return c.json({
+    monitor: serialiseResult(result),
+    executions: serialiseExecution(execResults),
+  });
 });
 
 /* ///////////////////////////////////////////////////////////////
@@ -87,29 +138,54 @@ app.get("/monitor", async (c) => {
 export default {
   fetch: app.fetch,
 
-  /** Cron trigger handler — runs every 5 minutes (internal, no auth needed). */
+  /**
+   * Cron trigger handler — runs every 5 minutes.
+   * Monitors vault state AND auto-executes any fired intents.
+   */
   async scheduled(
     _event: ScheduledEvent,
     env: Bindings,
     ctx: ExecutionContext
   ): Promise<void> {
-    const config = buildConfig(env);
+    const monitorConfig = buildMonitorConfig(env);
+    const executorConfig = buildExecutorConfig(env);
 
     ctx.waitUntil(
-      runMonitorCycle(config)
-        .then((result) => {
+      (async () => {
+        try {
+          // Step 1: Monitor
+          const result = await runMonitorCycle(monitorConfig);
           logResult(result);
 
-          if (result.intents.length > 0) {
-            console.log(
-              `[cron] ${result.intents.length} intent(s) fired — ` +
-                JSON.stringify(serialiseResult(result))
-            );
+          if (result.intents.length === 0) {
+            console.log("[cron] No intents — vault is balanced ✓");
+            return;
           }
-        })
-        .catch((err) => {
-          console.error("[cron] Monitor cycle failed:", err);
-        })
+
+          // Step 2: Execute
+          console.log(
+            `[cron] ${result.intents.length} intent(s) fired — executing...`
+          );
+          const execResults = await executeAll(
+            executorConfig,
+            result.intents
+          );
+
+          for (const r of execResults) {
+            if (r.success) {
+              console.log(
+                `[cron] ✅ ${r.intent.kind} executed: ${r.txHash}`
+              );
+            } else {
+              console.error(
+                `[cron] ❌ ${r.intent.kind} failed: ${r.error}`
+              );
+            }
+          }
+        } catch (err) {
+          console.error("[cron] Monitor/execute cycle failed:", err);
+        }
+      })()
     );
   },
 };
