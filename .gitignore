@@ -1,0 +1,84 @@
+# ============================================================
+#  OptionZero — .gitignore
+# ============================================================
+
+# ------------------------------------------------------------
+#  Foundry / Solidity
+# ------------------------------------------------------------
+
+# Compiled artifacts and ABI output
+contracts/out/
+contracts/cache/
+
+# Foundry broadcast logs (contain deployment tx data — commit
+# selectively if you want an on-chain paper trail, otherwise ignore)
+contracts/broadcast/
+
+# Forge library dependencies.
+# Re-install with: cd contracts && forge install
+contracts/lib/
+
+# ------------------------------------------------------------
+#  Gelato Web3 Function (w3f/)
+# ------------------------------------------------------------
+
+# TypeScript build output
+w3f/dist/
+w3f/.build/
+
+# Gelato W3F test runner temp files
+w3f/.tmp/
+w3f/*.tmp
+
+# ------------------------------------------------------------
+#  Node / pnpm
+# ------------------------------------------------------------
+
+node_modules/
+.pnpm-store/
+
+# ------------------------------------------------------------
+#  Environment & Secrets
+# ------------------------------------------------------------
+
+# All .env files — secrets live here, NEVER commit these
+.env
+.env.*
+!.env.example          # keep the example template
+
+# Gelato secrets are managed via the Gelato dashboard, not files.
+# Do NOT add w3f-secrets.json or similar here.
+
+# ------------------------------------------------------------
+#  Rust / Cargo  (legacy daemon — replaced by w3f/)
+# ------------------------------------------------------------
+
+daemon/target/
+
+# ------------------------------------------------------------
+#  macOS
+# ------------------------------------------------------------
+
+.DS_Store
+.AppleDouble
+.LSOverrideDirectory
+.__MACOSX
+
+# ------------------------------------------------------------
+#  Editors & IDEs
+# ------------------------------------------------------------
+
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# ------------------------------------------------------------
+#  Miscellaneous
+# ------------------------------------------------------------
+
+# Coverage reports
+lcov.info
+coverage/
