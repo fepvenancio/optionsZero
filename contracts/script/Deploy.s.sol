@@ -157,6 +157,9 @@ contract Deploy is Script {
             for (uint256 i; i < 3; ++i) {
                 MockWstETH(wstETH).mint(testAccounts[i], 1_000e18);
             }
+            // Also mint to the actual deployer (needed when running against Sepolia
+            // where the deployer is not one of the Anvil test accounts above).
+            MockWstETH(wstETH).mint(deployer, 1_000e18);
         } else {
             wstETH = vm.envAddress("WSTETH_ADDRESS");
             pricerAddr = vm.envOr("PRICER_ADDRESS", address(0));

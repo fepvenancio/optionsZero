@@ -44,7 +44,8 @@ node_modules/
 # All .env files — secrets live here, NEVER commit these
 .env
 .env.*
-!.env.example          # keep the example template
+!.env.example          # root-level example template
+!w3f/.env.example      # w3f subdirectory example template
 
 # Gelato secrets are managed via the Gelato dashboard, not files.
 # Do NOT add w3f-secrets.json or similar here.

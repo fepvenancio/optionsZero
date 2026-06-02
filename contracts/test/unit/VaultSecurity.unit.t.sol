@@ -76,7 +76,7 @@ contract VaultSecurityTest is Test {
         vm.startPrank(DEPLOYER);
 
         wstETH = new MockERC20("Wrapped stETH", "wstETH");
-        perp   = new MockPerpAdapter();
+        perp = new MockPerpAdapter();
 
         // Pre-compute both addresses before any deployment — no wasted nonces.
         //
@@ -85,36 +85,36 @@ contract VaultSecurityTest is Test {
         //   nonce+2  Trancher  ← PToken/NToken need this address
         //   nonce+3  Vault     ← Trancher needs this address
         //
-        uint256 nonce            = vm.getNonce(DEPLOYER);
+        uint256 nonce = vm.getNonce(DEPLOYER);
         address predictedTrancher = vm.computeCreateAddress(DEPLOYER, nonce + 2);
-        address predictedVault    = vm.computeCreateAddress(DEPLOYER, nonce + 3);
+        address predictedVault = vm.computeCreateAddress(DEPLOYER, nonce + 3);
 
-        pToken  = new PToken(predictedTrancher);   // nonce + 0
-        nToken  = new NToken(predictedTrancher);   // nonce + 1
-        trancher = new Trancher(                  // nonce + 2
+        pToken = new PToken(predictedTrancher); // nonce + 0
+        nToken = new NToken(predictedTrancher); // nonce + 1
+        trancher = new Trancher( // nonce + 2
             predictedVault,
             address(pToken),
             address(nToken),
             address(perp),
             address(0)
         );
-        vault = new Vault(                        // nonce + 3
+        vault = new Vault( // nonce + 3
             address(wstETH),
             address(trancher),
             address(perp)
         );
 
         assertEq(address(trancher), predictedTrancher, "trancher address mismatch");
-        assertEq(address(vault),    predictedVault,    "vault address mismatch");
+        assertEq(address(vault), predictedVault, "vault address mismatch");
 
         vault.setSettler(SETTLER);
         vm.stopPrank();
 
         // Fund actors.
-        wstETH.mint(ALICE,    100 ether);
-        wstETH.mint(BOB,      100 ether);
+        wstETH.mint(ALICE, 100 ether);
+        wstETH.mint(BOB, 100 ether);
         wstETH.mint(ATTACKER, 100 ether);
-        wstETH.mint(SETTLER,  1_000 ether);
+        wstETH.mint(SETTLER, 1_000 ether);
 
         // Seed perp notional so coverage > 0 from block 0.
         perp.openPosition(50 ether);

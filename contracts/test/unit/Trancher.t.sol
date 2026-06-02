@@ -322,9 +322,7 @@ contract TrancherTest is Test {
         vm.prank(address(trancher));
         pToken.mint(ALICE, 0.3e18);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(ITrancher.Trancher_InsufficientPBalance.selector, ALICE, 0.4e18, 0.3e18)
-        );
+        vm.expectRevert(abi.encodeWithSelector(ITrancher.Trancher_InsufficientPBalance.selector, ALICE, 0.4e18, 0.3e18));
         _mergeAsVault(ALICE, 0.4e18, 0.4e18, 0);
     }
 
@@ -332,9 +330,7 @@ contract TrancherTest is Test {
         vm.prank(address(trancher));
         nToken.mint(ALICE, 0.1e18);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(ITrancher.Trancher_InsufficientNBalance.selector, ALICE, 0.3e18, 0.1e18)
-        );
+        vm.expectRevert(abi.encodeWithSelector(ITrancher.Trancher_InsufficientNBalance.selector, ALICE, 0.3e18, 0.1e18));
         _mergeAsVault(ALICE, 0.3e18, 0, 0.3e18);
     }
 
