@@ -11,6 +11,7 @@ type Bindings = {
   VAULT_ADDRESS: string;
   ADAPTER_ADDRESS: string;
   IMBALANCE_THRESHOLD_BPS: string;
+  API_SECRET: string;
 };
 
 /* ///////////////////////////////////////////////////////////////
@@ -45,25 +46,34 @@ function buildConfig(env: Bindings) {
   };
 }
 
+/** Validate Bearer token against the API_SECRET. */
+function isAuthorised(c: { req: { header: (name: string) => string | undefined }; env: Bindings }): boolean {
+  const auth = c.req.header("Authorization");
+  if (!auth) return false;
+  const token = auth.replace("Bearer ", "");
+  return token === c.env.API_SECRET;
+}
+
 /* ///////////////////////////////////////////////////////////////
                           HONO APP
 /////////////////////////////////////////////////////////////// */
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-/// GET / — health check
+/// GET / — public health check (no sensitive data)
 app.get("/", (c) => {
   return c.json({
     service: "optionszero-vault-monitor",
     status: "ok",
-    vault: c.env.VAULT_ADDRESS,
-    adapter: c.env.ADAPTER_ADDRESS,
-    thresholdBps: c.env.IMBALANCE_THRESHOLD_BPS,
   });
 });
 
-/// GET /monitor — trigger a manual monitor cycle (for testing)
+/// GET /monitor — protected manual trigger
 app.get("/monitor", async (c) => {
+  if (!isAuthorised(c)) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
   const config = buildConfig(c.env);
   const result = await runMonitorCycle(config);
   logResult(result);
@@ -77,7 +87,7 @@ app.get("/monitor", async (c) => {
 export default {
   fetch: app.fetch,
 
-  /** Cron trigger handler — runs every 5 minutes. */
+  /** Cron trigger handler — runs every 5 minutes (internal, no auth needed). */
   async scheduled(
     _event: ScheduledEvent,
     env: Bindings,

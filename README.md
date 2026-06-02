@@ -148,6 +148,48 @@ cre workflow deploy vault-monitor --target staging-settings
 
 ---
 
+## Cloudflare Worker Monitor
+
+A **Cloudflare Worker** provides a lightweight, immediately-available execution
+layer for the same monitoring logic while CRE DON access is pending.
+
+- **Cron trigger**: `*/5 * * * *` (every 5 minutes)
+- **Manual trigger**: `GET /monitor` (Bearer token required)
+- **Health check**: `GET /` (public, no sensitive data)
+- **Stack**: Hono + viem + TypeScript on Cloudflare Workers
+
+### Setup
+
+```bash
+cd worker
+pnpm install
+
+# Set secrets (never stored in code)
+npx wrangler secret put SEPOLIA_RPC_URL
+npx wrangler secret put API_SECRET
+
+# Deploy
+pnpm deploy
+```
+
+### Manual query
+
+```bash
+curl -H "Authorization: Bearer $API_SECRET" \
+  https://<your-worker>.workers.dev/monitor
+```
+
+### Security
+
+- **Read-only**: The worker only calls `view` functions. It holds no private keys
+  and cannot sign transactions or modify on-chain state.
+- **Auth-protected**: The `/monitor` endpoint requires a Bearer token (`API_SECRET`).
+  Unauthenticated requests return 401.
+- **Secrets**: `SEPOLIA_RPC_URL` and `API_SECRET` are stored in Cloudflare's
+  encrypted secret store, never in source code.
+
+---
+
 ## Project Structure
 
 ```
@@ -200,6 +242,15 @@ optionsZero/
 │   ├── go.sum
 │   ├── project.yaml                   ← CRE project manifest
 │   └── secrets.yaml                   ← Secret references (never plaintext)
+│
+├── worker/                            ← Cloudflare Worker monitor
+│   ├── src/
+│   │   ├── index.ts                   ← Hono app + cron handler
+│   │   ├── monitor.ts                 ← Core logic: on-chain reads + trigger eval
+│   │   └── abi.ts                     ← Vault + Adapter ABI fragments
+│   ├── wrangler.toml                  ← Worker config + cron schedule
+│   ├── package.json
+│   └── tsconfig.json
 │
 └── docs/
     └── 01_metalearning_map.md         ← Full architecture reference
