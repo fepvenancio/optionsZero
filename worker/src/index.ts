@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { type Address, type Hex } from "viem";
 import { runMonitorCycle, logResult, type MonitorResult } from "./monitor";
+import { renderDashboard } from "./dashboard";
 import { executeAll, type ExecutionResult } from "./executor";
 
 /* ///////////////////////////////////////////////////////////////
@@ -81,12 +82,21 @@ function isAuthorised(c: {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-/// GET / — public health check (no sensitive data)
+/// GET / — serve the live dashboard
 app.get("/", (c) => {
-  return c.json({
-    service: "optionszero-vault-monitor",
-    status: "ok",
-  });
+  return c.html(renderDashboard());
+});
+
+/// GET /health — public health check
+app.get("/health", (c) => {
+  return c.json({ service: "optionszero-vault-monitor", status: "ok" });
+});
+
+/// GET /status — public vault state (all data is public on-chain)
+app.get("/status", async (c) => {
+  const config = buildMonitorConfig(c.env);
+  const result = await runMonitorCycle(config);
+  return c.json(serialiseResult(result));
 });
 
 /// GET /monitor — protected: read-only monitor cycle
