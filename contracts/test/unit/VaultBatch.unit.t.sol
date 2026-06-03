@@ -98,6 +98,7 @@ contract VaultBatchTest is Test {
         nToken = new NToken(trAddr);
         trancher = new Trancher(vaAddr, ptAddr, ntAddr, address(adapter), address(pricer));
         vault = new Vault(address(wstETH), trAddr, address(adapter));
+        vault.setWhitelistEnabled(false); // Disable whitelist for tests
 
         // Configure settler.
         vault.setSettler(SETTLER);

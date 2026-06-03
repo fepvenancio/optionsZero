@@ -109,6 +109,7 @@ contract E2ETest is Test {
             address(pricer)
         );
         vault = new Vault(address(wstETH), trancherAddr, address(adapter)); // nonce + 3
+        vault.setWhitelistEnabled(false); // Disable whitelist for tests
 
         // Verify all pre-computations were correct.
         assertEq(address(pToken), pTokenAddr, "pToken addr mismatch");

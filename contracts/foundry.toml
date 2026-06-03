@@ -22,10 +22,12 @@ runs = 1000
 fuzz = { runs = 5000 }
 
 [rpc_endpoints]
-mainnet = "${ETH_RPC}"
-sepolia = "${SEPOLIA_RPC}"
-anvil   = "http://127.0.0.1:8545"
+mainnet  = "${ETH_RPC}"
+sepolia  = "${SEPOLIA_RPC}"
+arbitrum = "${ARBITRUM_RPC}"
+anvil    = "http://127.0.0.1:8545"
 
 [etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}" }
-sepolia = { key = "${ETHERSCAN_API_KEY}" }
+mainnet  = { key = "${ETHERSCAN_API_KEY}" }
+sepolia  = { key = "${ETHERSCAN_API_KEY}" }
+arbitrum = { key = "${ARBISCAN_API_KEY}", chain = 42161, url = "https://api.arbiscan.io/api" }

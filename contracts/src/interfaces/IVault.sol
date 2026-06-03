@@ -76,6 +76,9 @@ interface IVault {
     ///      Once the keeper has started the cross-chain unwind, cancellation is impossible.
     error Vault_CannotCancelClosedBatch(bytes32 batchId);
 
+    /// @dev Revert when a non-whitelisted address attempts to deposit while whitelist is active.
+    error Vault_NotWhitelisted(address depositor);
+
     /* //////////////////////////////////////////////////////////////
                                EVENTS
     ////////////////////////////////////////////////////////////// */
@@ -153,6 +156,14 @@ interface IVault {
     /// @param  receiver   The wstETH recipient.
     /// @param  assets     Amount of wstETH transferred.
     event AssetsClaimed(bytes32 indexed requestId, address indexed user, address receiver, uint128 assets);
+
+    // --- Whitelist events ---
+
+    /// @notice Emitted when an address is added to or removed from the depositor whitelist.
+    event WhitelistUpdated(address indexed account, bool approved);
+
+    /// @notice Emitted when the whitelist is toggled on or off.
+    event WhitelistToggled(bool enabled);
 
     /* //////////////////////////////////////////////////////////////
                            VIEW FUNCTIONS

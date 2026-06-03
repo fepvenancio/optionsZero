@@ -103,6 +103,7 @@ contract VaultSecurityTest is Test {
             address(trancher),
             address(perp)
         );
+        vault.setWhitelistEnabled(false); // Disable whitelist for tests
 
         assertEq(address(trancher), predictedTrancher, "trancher address mismatch");
         assertEq(address(vault), predictedVault, "vault address mismatch");

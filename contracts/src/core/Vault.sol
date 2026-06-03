@@ -111,6 +111,13 @@ contract Vault is ERC4626, IVault {
         mapping(bytes32 => BatchTypes.BatchInfo) batches;
         /// @dev Per-request state.
         mapping(bytes32 => BatchTypes.RedemptionRequest) requests;
+
+        // --- Whitelist ---
+
+        /// @dev Whether the depositor whitelist is enforced.
+        bool whitelistEnabled;
+        /// @dev Mapping of approved depositors.
+        mapping(address => bool) whitelisted;
     }
 
     /// @dev Slot: keccak256(abi.encode(uint256(keccak256("optionszero.storage.kvault")) - 1)) & ~bytes32(uint256(0xff))
@@ -139,6 +146,11 @@ contract Vault is ERC4626, IVault {
         // Fix 2: deployer becomes the initial owner.
         $.owner = msg.sender;
         emit OwnershipTransferred(address(0), msg.sender);
+
+        // Whitelist is ON by default — only owner can deposit initially.
+        $.whitelistEnabled = true;
+        $.whitelisted[msg.sender] = true;
+        emit WhitelistUpdated(msg.sender, true);
 
         // Open the genesis batch immediately on deployment.
         _openNewBatch($);
@@ -212,6 +224,7 @@ contract Vault is ERC4626, IVault {
     /// @return shares     Vault shares minted.
     function deposit(uint256 assets, address receiver, uint256 minShares) public override returns (uint256 shares) {
         if (assets == 0) revert Vault_ZeroAssets();
+        _checkWhitelist(msg.sender);
         shares = super.deposit(assets, receiver);
 
         // Fix 4: slippage guard — reverts if fewer shares than caller expected.
@@ -231,6 +244,7 @@ contract Vault is ERC4626, IVault {
     /// @notice Mint `shares` vault shares by depositing the required wstETH.
     ///         Also mints proportional P and N tokens to `receiver`.
     function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
+        _checkWhitelist(msg.sender);
         assets = super.mint(shares, receiver);
         VaultStorage storage $ = _getVaultStorage();
         ITrancher($.trancher).split(receiver, shares);
@@ -703,6 +717,42 @@ contract Vault is ERC4626, IVault {
     }
 
     /* //////////////////////////////////////////////////////////////
+                         WHITELIST MANAGEMENT
+    ////////////////////////////////////////////////////////////// */
+
+    /// @notice Add or remove an address from the depositor whitelist.
+    /// @param  account  Address to update.
+    /// @param  approved True to whitelist, false to remove.
+    function setWhitelisted(address account, bool approved) external {
+        _checkOwner();
+        if (account == address(0)) revert Vault_ZeroAddress();
+        VaultStorage storage $ = _getVaultStorage();
+        $.whitelisted[account] = approved;
+        emit WhitelistUpdated(account, approved);
+    }
+
+    /// @notice Toggle the whitelist on or off.
+    /// @param  enabled  True = enforce whitelist, false = anyone can deposit.
+    function setWhitelistEnabled(bool enabled) external {
+        _checkOwner();
+        VaultStorage storage $ = _getVaultStorage();
+        $.whitelistEnabled = enabled;
+        emit WhitelistToggled(enabled);
+    }
+
+    /// @notice Check if an address is whitelisted.
+    function isWhitelisted(address account) external view returns (bool) {
+        VaultStorage storage $ = _getVaultStorage();
+        if (!$.whitelistEnabled) return true;
+        return $.whitelisted[account];
+    }
+
+    /// @notice Check if the whitelist is currently enforced.
+    function whitelistEnabled() external view returns (bool) {
+        return _getVaultStorage().whitelistEnabled;
+    }
+
+    /* //////////////////////////////////////////////////////////////
                            INTERNAL HELPERS
     ////////////////////////////////////////////////////////////// */
 
@@ -716,6 +766,14 @@ contract Vault is ERC4626, IVault {
     function _checkSettler(VaultStorage storage $) internal view {
         if ($.settler == address(0)) revert Vault_SettlerNotSet();
         if (msg.sender != $.settler) revert Vault_OnlySettler(msg.sender);
+    }
+
+    /// @dev Revert if the depositor whitelist is enabled and the caller is not approved.
+    function _checkWhitelist(address depositor) internal view {
+        VaultStorage storage $ = _getVaultStorage();
+        if ($.whitelistEnabled && !$.whitelisted[depositor]) {
+            revert Vault_NotWhitelisted(depositor);
+        }
     }
 
     /// @dev Opens a new batch, writes its initial state, and updates currentBatchId.

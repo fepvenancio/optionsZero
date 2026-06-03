@@ -89,6 +89,7 @@ contract VaultRegressionTest is Test {
 
         // Deploy a minimal vault: trancher = address(0) (no deposits in these tests).
         vault = new Vault(address(asset), address(0), address(adapter));
+        vault.setWhitelistEnabled(false); // Disable whitelist for tests
     }
 
     /* ///////////////////////////////////////////////////////////////
@@ -256,6 +257,7 @@ contract VaultRegressionTest is Test {
         nToken = new NToken(trAddr);
         trancher = new Trancher(vaAddr, ptAddr, ntAddr, address(adapter), address(pricer));
         vault = new Vault(address(asset), trAddr, address(adapter));
+        vault.setWhitelistEnabled(false); // Disable whitelist for tests
 
         asset.mint(ALICE, 100e18);
         asset.mint(BOB, 100e18);

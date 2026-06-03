@@ -134,6 +134,7 @@ contract OptionZeroIntegrationTest is Test {
             address(pricer)
         );
         vault = new Vault(address(wstETH), trAddr, address(adapter)); // nonce + 3
+        vault.setWhitelistEnabled(false); // Disable whitelist for tests
 
         // Verify wiring is correct before any test runs.
         assertEq(address(pToken), ptAddr, "setUp: pToken address mismatch");
