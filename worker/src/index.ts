@@ -74,7 +74,9 @@ function buildExecutorConfig(env: Bindings) {
       ...base,
       hyperliquid: {
         privateKey: env.HYPERLIQUID_PRIVATE_KEY as Hex,
-        isTestnet: env.HYPERLIQUID_TESTNET !== "false", // default to testnet
+        isTestnet: env.HYPERLIQUID_TESTNET === "true", // default to mainnet
+        leverage: 25,
+        maxPositionEth: 0.05, // ~$94 notional → ~$3.76 margin at 25x
       },
     };
   }

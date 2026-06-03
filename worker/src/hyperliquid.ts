@@ -33,6 +33,10 @@ const SLIPPAGE_PCT = 2;
 export interface HyperliquidConfig {
   privateKey: Hex;
   isTestnet: boolean;
+  /** Max position size in ETH (caps HL exposure). Default: 2 */
+  maxPositionEth?: number;
+  /** Leverage to set on ETH-PERP. Default: 10 */
+  leverage?: number;
 }
 
 export interface HyperliquidPosition {
@@ -57,6 +61,8 @@ export interface HyperliquidTradeResult {
                      CLIENT FACTORY
 /////////////////////////////////////////////////////////////// */
 
+let _leverageSet = false;
+
 function createClients(config: HyperliquidConfig) {
   const wallet = privateKeyToAccount(config.privateKey);
   const transport = new HttpTransport({ isTestnet: config.isTestnet });
@@ -65,6 +71,31 @@ function createClients(config: HyperliquidConfig) {
   const exchange = new ExchangeClient({ transport, wallet });
 
   return { info, exchange, wallet };
+}
+
+/**
+ * Ensure leverage is set on first trade. Only runs once per worker lifecycle.
+ */
+async function ensureLeverage(config: HyperliquidConfig): Promise<void> {
+  if (_leverageSet) return;
+
+  const leverage = config.leverage ?? 10;
+  const { exchange } = createClients(config);
+
+  console.log(`[hyperliquid] Setting ETH-PERP leverage to ${leverage}x (cross)`);
+
+  try {
+    await exchange.updateLeverage({
+      asset: ETH_ASSET_INDEX,
+      isCross: true,
+      leverage,
+    });
+    _leverageSet = true;
+  } catch (err) {
+    // Non-fatal — leverage might already be set
+    console.warn(`[hyperliquid] Leverage set warning: ${err instanceof Error ? err.message : err}`);
+    _leverageSet = true; // don't retry
+  }
 }
 
 /* ///////////////////////////////////////////////////////////////
@@ -271,27 +302,43 @@ export async function reduceShort(
 /////////////////////////////////////////////////////////////// */
 
 /**
- * Resize the short ETH-PERP position to match a target notional.
- * This is the main entry point for the keeper executor.
+ * Resize the short ETH-PERP position to match a target notional,
+ * capped at maxPositionEth to stay within margin limits.
+ *
+ * The on-chain MockPerpAdapter syncs the FULL vault notional
+ * independently — this only controls the real HL exposure.
  *
  * @param config Hyperliquid config
- * @param targetSizeEth Target short size in ETH (positive number = short this much)
+ * @param targetSizeEth Target short size in ETH (from vault TVL)
  * @returns Trade result
  */
 export async function resizeShortToTarget(
   config: HyperliquidConfig,
   targetSizeEth: number
 ): Promise<HyperliquidTradeResult> {
+  // Ensure leverage is set on first call
+  await ensureLeverage(config);
+
+  // Cap the target to maxPositionEth
+  const maxPos = config.maxPositionEth ?? 2;
+  const cappedTarget = Math.min(targetSizeEth, maxPos);
+
+  if (cappedTarget < targetSizeEth) {
+    console.log(
+      `[hyperliquid] Capping HL position: vault wants ${targetSizeEth.toFixed(4)} ETH, max=${maxPos} ETH`
+    );
+  }
+
   const currentPosition = await getPosition(config);
   const currentShort = currentPosition
     ? Math.abs(currentPosition.sizeEth)
     : 0;
 
   console.log(
-    `[hyperliquid] Resize: current=${currentShort.toFixed(4)} ETH short → target=${targetSizeEth.toFixed(4)} ETH short`
+    `[hyperliquid] Resize: current=${currentShort.toFixed(4)} ETH short → target=${cappedTarget.toFixed(4)} ETH short`
   );
 
-  const delta = targetSizeEth - currentShort;
+  const delta = cappedTarget - currentShort;
 
   if (Math.abs(delta) < 0.001) {
     console.log("[hyperliquid] Position already at target — no trade needed");
