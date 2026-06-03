@@ -10,9 +10,14 @@ compatibility_flags = ["nodejs_compat"]
 crons = ["*/5 * * * *"]
 
 # Secrets (set via `wrangler secret put`):
-#   SEPOLIA_RPC_URL — Sepolia RPC endpoint
+#   ARBITRUM_RPC_URL — Arbitrum One RPC endpoint
+#   KEEPER_PRIVATE_KEY — EOA private key for on-chain txs
+#   API_SECRET — Bearer token for protected endpoints
+#   HYPERLIQUID_PRIVATE_KEY — HL API wallet private key
 
 [vars]
+# TODO: Update after deploying contracts to Arbitrum One
+# Current addresses are Sepolia — will be replaced after `forge script` on Arbitrum
 VAULT_ADDRESS = "0x43A7bbbd3ad6D4F7a7e3D8277D6271f9C9f8cffD"
 ADAPTER_ADDRESS = "0x343F8BF65EEA92b067b04431f4c579CB6276Ad83"
 IMBALANCE_THRESHOLD_BPS = "100"

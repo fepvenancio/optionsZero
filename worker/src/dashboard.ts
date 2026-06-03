@@ -337,7 +337,7 @@ export function renderDashboard(): string {
         <span class="subtitle">vault monitor</span>
       </div>
       <div class="header-right">
-        <span class="network-tag">sepolia</span>
+        <span class="network-tag">arbitrum</span>
         <div class="status-indicator">
           <div class="status-dot green" id="statusDot"></div>
           <span id="statusLabel">loading</span>

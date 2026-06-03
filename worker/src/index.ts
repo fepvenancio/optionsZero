@@ -9,7 +9,7 @@ import { executeAll, type ExecutionResult } from "./executor";
 /////////////////////////////////////////////////////////////// */
 
 type Bindings = {
-  SEPOLIA_RPC_URL: string;
+  ARBITRUM_RPC_URL: string;
   VAULT_ADDRESS: string;
   ADAPTER_ADDRESS: string;
   IMBALANCE_THRESHOLD_BPS: string;
@@ -21,6 +21,8 @@ type Bindings = {
   HYPERLIQUID_TESTNET?: string;
   /** Address of the vault wallet on Hyperliquid (main account, not API wallet). */
   HYPERLIQUID_VAULT_ADDRESS?: string;
+  /** 1inch API key for swap execution (set via wrangler secret put). */
+  ONEINCH_API_KEY?: string;
 };
 
 /* ///////////////////////////////////////////////////////////////
@@ -57,7 +59,7 @@ function serialiseExecution(results: ExecutionResult[]) {
 
 function buildMonitorConfig(env: Bindings) {
   return {
-    rpcUrl: env.SEPOLIA_RPC_URL,
+    rpcUrl: env.ARBITRUM_RPC_URL,
     vaultAddress: env.VAULT_ADDRESS as Address,
     adapterAddress: env.ADAPTER_ADDRESS as Address,
     imbalanceThresholdBps: parseInt(env.IMBALANCE_THRESHOLD_BPS, 10) || 100,

@@ -8,7 +8,7 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
+import { arbitrum } from "viem/chains";
 import { vaultAbi, adapterAbi, vaultWriteAbi, adapterWriteAbi } from "./abi";
 import type { IntentFired, MonitorConfig } from "./monitor";
 import {
@@ -46,7 +46,7 @@ async function findActivePositionId(
   config: ExecutorConfig
 ): Promise<Hex | null> {
   const client = createPublicClient({
-    chain: sepolia,
+    chain: arbitrum,
     transport: http(config.rpcUrl),
   });
 
@@ -86,11 +86,11 @@ async function executeResizePerp(
   const account = privateKeyToAccount(config.privateKey);
   const client = createWalletClient({
     account,
-    chain: sepolia,
+    chain: arbitrum,
     transport: http(config.rpcUrl),
   });
   const publicClient = createPublicClient({
-    chain: sepolia,
+    chain: arbitrum,
     transport: http(config.rpcUrl),
   });
 
@@ -201,11 +201,11 @@ async function executeSettleBatch(
   const account = privateKeyToAccount(config.privateKey);
   const client = createWalletClient({
     account,
-    chain: sepolia,
+    chain: arbitrum,
     transport: http(config.rpcUrl),
   });
   const publicClient = createPublicClient({
-    chain: sepolia,
+    chain: arbitrum,
     transport: http(config.rpcUrl),
   });
 
@@ -359,11 +359,11 @@ async function executeSettleFunding(
   const account = privateKeyToAccount(config.privateKey);
   const client = createWalletClient({
     account,
-    chain: sepolia,
+    chain: arbitrum,
     transport: http(config.rpcUrl),
   });
   const publicClient = createPublicClient({
-    chain: sepolia,
+    chain: arbitrum,
     transport: http(config.rpcUrl),
   });
 

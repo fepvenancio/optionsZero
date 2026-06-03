@@ -1,5 +1,5 @@
 import { createPublicClient, http, formatEther, type Address } from "viem";
-import { sepolia } from "viem/chains";
+import { arbitrum } from "viem/chains";
 import { vaultAbi, adapterAbi } from "./abi";
 
 /* ///////////////////////////////////////////////////////////////
@@ -47,7 +47,7 @@ export interface IntentFired {
 
 async function readVaultState(config: MonitorConfig): Promise<VaultState> {
   const client = createPublicClient({
-    chain: sepolia,
+    chain: arbitrum,
     transport: http(config.rpcUrl),
   });
 
