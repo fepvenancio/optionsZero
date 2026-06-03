@@ -126,4 +126,11 @@ export const adapterWriteAbi = [
     stateMutability: "nonpayable",
     type: "function",
   },
+  {
+    inputs: [],
+    name: "settleFunding",
+    outputs: [{ internalType: "int256", name: "settled", type: "int256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ] as const;

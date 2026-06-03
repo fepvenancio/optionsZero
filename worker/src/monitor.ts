@@ -20,7 +20,11 @@ export interface VaultState {
   accruedFunding: bigint;
 }
 
-export type IntentKind = "RESIZE_SHORT_PERP" | "SETTLE_REDEMPTION_BATCH" | "NONE";
+export type IntentKind =
+  | "RESIZE_SHORT_PERP"
+  | "SETTLE_REDEMPTION_BATCH"
+  | "SETTLE_FUNDING"
+  | "NONE";
 
 export interface MonitorResult {
   state: VaultState;
@@ -111,6 +115,18 @@ function evaluateTriggers(
     });
   }
 
+  // ── Trigger 3: Accrued Funding Settlement ──────────────────
+  // Settle funding when it exceeds a meaningful threshold.
+  // accruedFunding is int256 — positive = vault earns, negative = vault pays
+  const FUNDING_SETTLE_THRESHOLD = 1_000_000_000_000n; // 1e12 wei
+  const absFunding =
+    state.accruedFunding < 0n ? -state.accruedFunding : state.accruedFunding;
+  if (absFunding > FUNDING_SETTLE_THRESHOLD) {
+    intents.push({
+      kind: "SETTLE_FUNDING",
+    });
+  }
+
   return intents;
 }
 
@@ -169,6 +185,11 @@ export function logResult(result: MonitorResult): void {
           `direction=${intent.direction} ` +
           `sizeDelta=${formatEther(intent.sizeDeltaWei!)} ETH ` +
           `imbalance=${intent.imbalanceBps}bps`
+      );
+    } else if (intent.kind === "SETTLE_FUNDING") {
+      console.log(
+        `[vault-monitor] INTENT: SETTLE_FUNDING ` +
+          `accruedFunding=${state.accruedFunding.toString()} wei`
       );
     } else {
       console.log(

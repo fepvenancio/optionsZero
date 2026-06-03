@@ -349,6 +349,48 @@ async function executeSettleBatch(
 }
 
 /* ///////////////////////////////////////////////////////////////
+                    EXECUTE SETTLE FUNDING
+/////////////////////////////////////////////////////////////// */
+
+async function executeSettleFunding(
+  config: ExecutorConfig,
+  intent: IntentFired
+): Promise<ExecutionResult> {
+  const account = privateKeyToAccount(config.privateKey);
+  const client = createWalletClient({
+    account,
+    chain: sepolia,
+    transport: http(config.rpcUrl),
+  });
+  const publicClient = createPublicClient({
+    chain: sepolia,
+    transport: http(config.rpcUrl),
+  });
+
+  console.log(`[executor] Settling accrued funding...`);
+
+  const txHash = await client.writeContract({
+    address: config.adapterAddress,
+    abi: adapterWriteAbi,
+    functionName: "settleFunding",
+  });
+
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  console.log(
+    `[executor] settleFunding TX ${txHash} — status: ${receipt.status}, gas: ${receipt.gasUsed}`
+  );
+
+  return {
+    intent,
+    txHash,
+    success: receipt.status === "success",
+  };
+}
+
+/* ///////////////////////////////////////////////////////////////
                        PUBLIC API
 /////////////////////////////////////////////////////////////// */
 
@@ -362,6 +404,8 @@ export async function executeIntent(
         return await executeResizePerp(config, intent);
       case "SETTLE_REDEMPTION_BATCH":
         return await executeSettleBatch(config, intent);
+      case "SETTLE_FUNDING":
+        return await executeSettleFunding(config, intent);
       default:
         return {
           intent,

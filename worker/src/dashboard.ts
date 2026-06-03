@@ -248,6 +248,11 @@ export function renderDashboard(): string {
       color: var(--amber);
     }
 
+    .intent-badge.funding {
+      background: rgba(90, 158, 111, 0.1);
+      color: var(--green);
+    }
+
     .intent-badge.idle {
       background: rgba(34, 197, 94, 0.08);
       color: var(--green);
@@ -263,6 +268,36 @@ export function renderDashboard(): string {
       font-family: var(--mono);
       font-size: 0.7rem;
       color: var(--text-muted);
+    }
+
+    /* ── HL Position ────────────────────── */
+    .hl-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+    }
+
+    .hl-cell {
+      padding: 0.875rem 1.25rem;
+      border-right: 1px solid var(--border);
+    }
+
+    .hl-cell:last-child { border-right: none; }
+
+    .hl-label {
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.35rem;
+    }
+
+    .hl-value {
+      font-family: var(--mono);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-value);
     }
 
     /* ── Footer ──────────────────────────── */
@@ -352,6 +387,31 @@ export function renderDashboard(): string {
 
     <div class="section">
       <div class="section-header">
+        <span class="section-title">Hyperliquid position</span>
+        <span class="section-value" id="hlStatus" style="color:var(--text-muted);font-size:0.65rem">&mdash;</span>
+      </div>
+      <div class="hl-grid">
+        <div class="hl-cell">
+          <div class="hl-label">Size</div>
+          <div class="hl-value" id="hlSize">&mdash;</div>
+        </div>
+        <div class="hl-cell">
+          <div class="hl-label">Entry</div>
+          <div class="hl-value" id="hlEntry">&mdash;</div>
+        </div>
+        <div class="hl-cell">
+          <div class="hl-label">Unreal. PnL</div>
+          <div class="hl-value" id="hlPnl">&mdash;</div>
+        </div>
+        <div class="hl-cell">
+          <div class="hl-label">Margin Used</div>
+          <div class="hl-value" id="hlMargin">&mdash;</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
         <span class="section-title">Intents</span>
         <span class="section-value" style="color:var(--text-muted);font-size:0.65rem" id="lastUpdate">&mdash;</span>
       </div>
@@ -433,6 +493,22 @@ export function renderDashboard(): string {
         label.textContent = 'rebalancing';
       }
 
+      // Hyperliquid position
+      if (d.hlPosition) {
+        const hl = d.hlPosition;
+        const sz = parseFloat(hl.szi || '0');
+        document.getElementById('hlSize').textContent = sz !== 0 ? Math.abs(sz).toFixed(4) + ' ETH' : 'none';
+        document.getElementById('hlSize').style.color = sz < 0 ? 'var(--red)' : sz > 0 ? 'var(--green)' : 'var(--text-muted)';
+        document.getElementById('hlEntry').textContent = hl.entryPx ? '$' + parseFloat(hl.entryPx).toFixed(2) : '—';
+        const pnl = parseFloat(hl.unrealizedPnl || '0');
+        const pnlEl = document.getElementById('hlPnl');
+        pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(4);
+        pnlEl.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+        document.getElementById('hlMargin').textContent = '$' + parseFloat(hl.marginUsed || '0').toFixed(2);
+        document.getElementById('hlStatus').textContent = sz !== 0 ? 'SHORT' : 'no position';
+        document.getElementById('hlStatus').style.color = sz !== 0 ? 'var(--red)' : 'var(--text-muted)';
+      }
+
       // Intents
       const list = document.getElementById('intentList');
       if (d.intents.length === 0) {
@@ -440,15 +516,21 @@ export function renderDashboard(): string {
       } else {
         list.innerHTML = d.intents.map(i => {
           const isR = i.kind === 'RESIZE_SHORT_PERP';
-          const badge = isR ? 'resize' : 'settle';
-          const label = isR ? 'RESIZE' : 'SETTLE';
+          const isF = i.kind === 'SETTLE_FUNDING';
+          const badge = isR ? 'resize' : isF ? 'funding' : 'settle';
+          const label = isR ? 'RESIZE' : isF ? 'FUNDING' : 'SETTLE';
           const absWei = (i.sizeDeltaWei || '0').replace('-','');
-          const detail = isR
-            ? (i.direction === 'INCREASE_SHORT' ? '↑ ' : '↓ ') + compact(fmtEth(absWei)) + ' ETH'
-            : compact(fmtEth(i.pendingSharesWei || '0')) + ' ETH';
-          const desc = isR
-            ? (i.direction === 'INCREASE_SHORT' ? 'Increase' : 'Decrease') + ' short perp'
-            : 'Settle pending redemption batch';
+          let detail, desc;
+          if (isR) {
+            detail = (i.direction === 'INCREASE_SHORT' ? '↑ ' : '↓ ') + compact(fmtEth(absWei)) + ' ETH';
+            desc = (i.direction === 'INCREASE_SHORT' ? 'Increase' : 'Decrease') + ' short perp';
+          } else if (isF) {
+            detail = (f / 1e18).toFixed(8) + ' ETH';
+            desc = 'Settle accrued funding';
+          } else {
+            detail = compact(fmtEth(i.pendingSharesWei || '0')) + ' ETH';
+            desc = 'Settle pending redemption batch';
+          }
           return '<div class="intent-row"><span class="intent-badge '+badge+'">'+label+'</span><span class="intent-text">'+desc+'</span><span class="intent-detail">'+detail+'</span></div>';
         }).join('');
       }

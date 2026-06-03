@@ -17,8 +17,10 @@ type Bindings = {
   KEEPER_PRIVATE_KEY: string;
   /** Hyperliquid wallet private key (optional — enables real trading). */
   HYPERLIQUID_PRIVATE_KEY?: string;
-  /** Set to "true" for Hyperliquid testnet (default: testnet). */
+  /** Set to "true" for Hyperliquid testnet (default: mainnet). */
   HYPERLIQUID_TESTNET?: string;
+  /** Address of the vault wallet on Hyperliquid (main account, not API wallet). */
+  HYPERLIQUID_VAULT_ADDRESS?: string;
 };
 
 /* ///////////////////////////////////////////////////////////////
@@ -111,11 +113,75 @@ app.get("/health", (c) => {
   return c.json({ service: "optionszero-vault-monitor", status: "ok" });
 });
 
-/// GET /status — public vault state (all data is public on-chain)
+/// GET /status — public vault state + HL position (all data is public)
 app.get("/status", async (c) => {
   const config = buildMonitorConfig(c.env);
   const result = await runMonitorCycle(config);
-  return c.json(serialiseResult(result));
+  const serialised = serialiseResult(result) as Record<string, unknown>;
+
+  // Fetch Hyperliquid position if key is configured
+  if (c.env.HYPERLIQUID_PRIVATE_KEY) {
+    try {
+      // Use vault address if configured, otherwise derive from API key
+      let hlAddress: string;
+      if (c.env.HYPERLIQUID_VAULT_ADDRESS) {
+        hlAddress = c.env.HYPERLIQUID_VAULT_ADDRESS;
+      } else {
+        const { privateKeyToAccount } = await import("viem/accounts");
+        const account = privateKeyToAccount(c.env.HYPERLIQUID_PRIVATE_KEY as Hex);
+        hlAddress = account.address;
+      }
+      const isTestnet = c.env.HYPERLIQUID_TESTNET === "true";
+      const baseUrl = isTestnet
+        ? "https://api.hyperliquid-testnet.xyz"
+        : "https://api.hyperliquid.xyz";
+
+      const hlRes = await fetch(`${baseUrl}/info`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "clearinghouseState",
+          user: hlAddress,
+        }),
+      });
+
+      if (hlRes.ok) {
+        const hlData = (await hlRes.json()) as Record<string, unknown>;
+        const positions = hlData.assetPositions as Array<Record<string, unknown>> | undefined;
+        const ethPos = positions?.find((p: Record<string, unknown>) => {
+          const pos = p.position as Record<string, string> | undefined;
+          return pos?.coin === "ETH";
+        });
+
+        if (ethPos) {
+          const pos = ethPos.position as Record<string, string>;
+          serialised.hlPosition = {
+            szi: pos.szi ?? "0",
+            entryPx: pos.entryPx ?? null,
+            unrealizedPnl: pos.unrealizedPnl ?? "0",
+            marginUsed: pos.marginUsed ?? "0",
+            leverage: (pos as Record<string, unknown>).leverage ?? null,
+          };
+        } else {
+          serialised.hlPosition = {
+            szi: "0",
+            entryPx: null,
+            unrealizedPnl: "0",
+            marginUsed: "0",
+          };
+        }
+
+        serialised.hlAccount = {
+          address: hlAddress,
+          accountValue: (hlData.crossMarginSummary as Record<string, string>)?.accountValue ?? "0",
+        };
+      }
+    } catch (err) {
+      console.warn("[status] HL fetch error:", err);
+    }
+  }
+
+  return c.json(serialised);
 });
 
 /// GET /monitor — protected: read-only monitor cycle
